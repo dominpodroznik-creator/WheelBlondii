@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Koło Fortuny</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { margin:0; font-family:sans-serif; background:#111; color:white; text-align:center; }
+    #wheel { width:300px; height:300px; margin:40px auto; background:conic-gradient(red 0deg 72deg, gold 72deg 144deg, blue 144deg 216deg, green 216deg 288deg, purple 288deg 360deg); border-radius:50%; transition:transform 4s ease-out; }
+    #pointer { width:0; height:0; border-left:15px solid transparent; border-right:15px solid transparent; border-bottom:30px solid white; margin:0 auto -15px; }
+    button { padding:16px 40px; font-size:20px; margin:20px; background:#e91e63; border:none; color:white; border-radius:12px; }
+  </style>
+</head>
+<body>
+  <h2>Koło Fortuny</h2>
+  <div id="pointer"></div>
+  <div id="wheel"></div>
+  <button id="spin">Zakręć!</button>
+  <p id="result"></p>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    const prizes = [
+      "10% OFF", "Premium 24h", "Free Content", "Jackpot", "Nothing"
+    ];
+
+    const wheel = document.getElementById('wheel');
+    const result = document.getElementById('result');
+    const btn = document.getElementById('spin');
+
+    let spinning = false;
+
+    btn.onclick = async () => {
+      if (spinning) return;
+      spinning = true;
+      btn.disabled = true;
+      result.textContent = '';
+
+      try {
+        const res = await fetch('https://twoj-domena.com/spin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: tg.initDataUnsafe.user?.id })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          result.textContent = data.error;
+          spinning = false;
+          btn.disabled = false;
+          return;
+        }
+
+        // Losowy kąt + pełnych obrotów + wygrana
+        const prizeIndex = prizes.indexOf(data.prize);
+        if (prizeIndex === -1) throw new Error('Błąd');
+
+        const baseDeg = 360 - (prizeIndex * 72 + 36); // środek sektora
+        const spins = 5 * 360 + baseDeg + Math.random() * 30 - 15;
+        
+        wheel.style.transform = `rotate(${spins}deg)`;
+
+        setTimeout(() => {
+          result.textContent = `Wygrałeś: ${data.prize} 🎉`;
+          spinning = false;
+          btn.disabled = false;
+        }, 4200);
+
+      } catch (err) {
+        result.textContent = 'Błąd serwera';
+        spinning = false;
+        btn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
