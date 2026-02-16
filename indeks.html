@@ -7,7 +7,7 @@
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     body { margin:0; font-family:sans-serif; background:#111; color:white; text-align:center; }
-    #wheel { width:300px; height:300px; margin:40px auto; background:conic-gradient(red 0deg 72deg, gold 72deg 144deg, blue 144deg 216deg, green 216deg 288deg, purple 288deg 360deg); border-radius:50%; transition:transform 4s ease-out; }
+    #wheel { width:clamp(200px, 60vw, 300px); height:clamp(200px, 60vw, 300px); margin:40px auto; background:conic-gradient(red 0deg 72deg, gold 72deg 144deg, blue 144deg 216deg, green 216deg 288deg, purple 288deg 360deg); border-radius:50%; transition:transform 4s ease-out; }
     #pointer { width:0; height:0; border-left:15px solid transparent; border-right:15px solid transparent; border-bottom:30px solid white; margin:0 auto -15px; }
     button { padding:16px 40px; font-size:20px; margin:20px; background:#e91e63; border:none; color:white; border-radius:12px; }
   </style>
@@ -20,9 +20,21 @@
   <p id="result"></p>
 
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
+    const SPIN_DURATION = 4000; // 4 sekundy - zmienne w jednym miejscu!
+    
+    // Fallback dla testowania poza Telegramem
+    let tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    } else {
+      console.warn('Tidak di dalam Telegram - Fallback mode');
+      tg = {
+        initDataUnsafe: {
+          user: { id: 'test-user-' + Date.now() }
+        }
+      };
+    }
 
     const prizes = [
       "10% OFF", "Premium 24h", "Free Content", "Jackpot", "Nothing"
@@ -33,6 +45,7 @@
     const btn = document.getElementById('spin');
 
     let spinning = false;
+    let userId = 'test-user-' + Date.now(); // Zawsze mamy backup ID
 
     btn.onclick = async () => {
       if (spinning) return;
@@ -40,15 +53,35 @@
       btn.disabled = true;
       result.textContent = '';
 
+      // Jeśli mamy real Telegram ID, użyj tego, inaczej fallback
+      const finalUserId = tg.initDataUnsafe?.user?.id || userId;
+      console.log('Spin with userId:', finalUserId);
+
       try {
-        const res = await fetch('https://wheelblondii.onrender.com/spin', {
+        const res = await fetch('http://localhost:8080/spin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: tg.initDataUnsafe.user?.id })
+          body: JSON.stringify({ userId: finalUserId })
         });
+        
+        if (!res.ok) {
+          // 429 = Too Many Requests
+          if (res.status === 429) {
+            result.textContent = 'Czekaj 2 sekundy między spinami';
+          } else {
+            console.error('Server error:', res.status, res.statusText);
+            result.textContent = 'Błąd serwera - spróbuj później';
+          }
+          spinning = false;
+          btn.disabled = false;
+          return;
+        }
+        
         const data = await res.json();
+        console.log('Spin result:', data);
 
         if (data.error) {
+          console.warn('Game error:', data.error);
           result.textContent = data.error;
           spinning = false;
           btn.disabled = false;
@@ -57,21 +90,27 @@
 
         // Losowy kąt + pełnych obrotów + wygrana
         const prizeIndex = prizes.indexOf(data.prize);
-        if (prizeIndex === -1) throw new Error('Błąd');
+        if (prizeIndex === -1) {
+          console.error('Prize not found in list:', data.prize);
+          throw new Error('Nagroda nie znaleziona');
+        }
 
         const baseDeg = 360 - (prizeIndex * 72 + 36); // środek sektora
         const spins = 5 * 360 + baseDeg + Math.random() * 30 - 15;
         
+        wheel.style.transition = `transform ${SPIN_DURATION / 1000}s ease-out`;
         wheel.style.transform = `rotate(${spins}deg)`;
+        console.log('Spinning wheel:', spins, 'deg');
 
         setTimeout(() => {
           result.textContent = `Wygrałeś: ${data.prize} 🎉`;
           spinning = false;
           btn.disabled = false;
-        }, 4200);
+        }, SPIN_DURATION);
 
       } catch (err) {
-        result.textContent = 'Błąd serwera';
+        console.error('Fatal error:', err);
+        result.textContent = 'Coś poszło nie tak - spróbuj później';
         spinning = false;
         btn.disabled = false;
       }
