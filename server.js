@@ -70,10 +70,10 @@ function createApp() {
 
 if (require.main === module) {
   const app = createApp();
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log("Server działa na porcie", PORT);
-  });
+  const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+ });
 }
 
 module.exports = { createApp };
