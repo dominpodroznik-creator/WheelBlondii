@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
+const fs = require('fs');
 
 function createApp() {
   const app = express();
@@ -13,8 +14,16 @@ function createApp() {
 
   // Obsługę HTML na GET /
   app.get('/', (req, res) => {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    res.sendFile(path.join(__dirname, 'indeks.html'));
+    const htmlPath = path.join(__dirname, 'indeks.html');
+    try {
+      const html = fs.readFileSync(htmlPath, 'utf-8');
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      res.set('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (err) {
+      console.error('Error reading indeks.html:', err);
+      res.status(500).send('Error loading page');
+    }
   });
 
   // Rate limiter - zabezpieczenie przed spamem
