@@ -58,7 +58,7 @@
       console.log('Spin with userId:', finalUserId);
 
       try {
-        const res = await fetch('http://localhost:8080/spin', {
+        fetch('https://wheelblondii.onrender.com/spin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: finalUserId })
